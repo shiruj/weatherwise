@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Wise Assistant 🌤️</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .weather-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        
+        .animated-cloud {
+            position: absolute;
+            z-index: 0;
+            opacity: 0.3;
+            animation: float 15s infinite linear;
+        }
+        
+        @keyframes float {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(20px, 40px); }
+            100% { transform: translate(0, 0); }
+        }
+        
+        .weather-icon {
+            animation: pulse 3s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .chat-message {
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .weather-card::before {
+            content: '';
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%;
+            z-index: -1;
+        }
+        
+        .nlp-btn {
+            background: linear-gradient(45deg, #ff8a00, #e52e71);
+            transition: all 0.3s ease;
+        }
+        
+        .nlp-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(255, 138, 0, 0.3);
+        }
+        
+        .add-whatsapp-btn {
+            background: linear-gradient(45deg, #25D366, #128C7E);
+            transition: all 0.3s ease;
+        }
+        
+        .add-whatsapp-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(37, 211, 102, 0.3);
+        }
+        
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #ffffff;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .background-shapes {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .shape {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.2;
+            animation: move 20s infinite linear;
+        }
+        
+        @keyframes move {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(50px, 50px) rotate(180deg); }
+            100% { transform: translate(0, 0) rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="relative">
+    <div class="background-shapes">
+        <div class="shape" style="width: 100px; height: 100px; background: #FFD700; top: 10%; left: 10%; animation-duration: 25s;"></div>
+        <div class="shape" style="width: 80px; height: 80px; background: #87CEEB; top: 20%; right: 20%; animation-duration: 30s; animation-delay: 5s;"></div>
+        <div class="shape" style="width: 120px; height: 120px; background: #FF69B4; bottom: 15%; left: 30%; animation-duration: 35s; animation-delay: 10s;"></div>
+        <div class="shape" style="width: 90px; height: 90px; background: #9370DB; bottom: 25%; right: 15%; animation-duration: 28s; animation-delay: 8s;"></div>
+        <div class="shape" style="width: 70px; height: 70px; background: #32CD32; top: 40%; left: 50%; animation-duration: 32s; animation-delay: 3s;"></div>
+    </div>
+    
+    <!-- Header -->
+    <header class="absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-10">
+        <div class="flex items-center space-x-2">
+            <i data-lucide="cloud-sun" class="text-white w-8 h-8"></i>
+            <h1 class="text-2xl font-bold text-white">Weather Pulse</h1>
+        </div>
+        <button id="location-btn" class="bg-white bg-opacity-20 backdrop-blur-md hover:bg-opacity-30 text-white px-4 py-2 rounded-full transition-all duration-300 flex items-center space-x-2">
+            <i data-lucide="map-pin" class="w-5 h-5"></i>
+            <span>Use My Location</span>
+        </button>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-16">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Weather Card -->
+            <div class="weather-card p-6 relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4">
+                    <div id="current-time" class="text-gray-700 font-medium"></div>
+                    <div id="current-date" class="text-gray-500 text-sm mt-1"></div>
+                </div>
+                
+                <div id="weather-content" class="text-center py-10">
+                    <div class="mb-6">
+                        <h2 id="city-name" class="text-4xl font-bold text-gray-800 mb-2">Welcome</h2>
+                        <p id="weather-description" class="text-xl text-gray-600">Enter your location to see weather details</p>
+                    </div>
+                    
+                    <div id="main-weather" class="flex flex-col items-center">
+                        <i id="weather-icon" data-lucide="sun" class="weather-icon w-40 h-40 text-yellow-500 mb-4"></i>
+                        <div class="flex items-center justify-center space-x-4">
+                            <span id="temperature" class="text-7xl font-bold text-gray-800">--°</span>
+                            <div class="text-center">
+                                <p id="feels-like" class="text-lg text-gray-500">Feels like --°</p>
+                                <p id="humidity" class="text-lg text-gray-500">Humidity: --%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="loading" class="hidden flex-col items-center justify-center py-8">
+                    <div class="loading-spinner mb-4"></div>
+                    <p class="text-gray-600">Fetching weather data...</p>
+                </div>
+                
+                <div id="error-message" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">
+                    <p class="font-bold">Error</p>
+                    <p id="error-text">Unable to load weather data. Please try again.</p>
+                </div>
+            </div>
+            
+            <!-- NLP & WhatsApp Section -->
+            <div class="space-y-6">
+                <!-- NLP Chat Section -->
+                <div class="weather-card p-6">
+                    <div class="flex items-center space-x-2 mb-6">
+                        <i data-lucide="message-circle" class="text-blue-500 w-6 h-6"></i>
+                        <h2 class="text-xl font-bold text-gray-800">Weather Assistant</h2>
+                    </div>
+                    
+                    <div id="chat-container" class="bg-gray-50 rounded-xl p-4 h-64 overflow-y-auto mb-4">
+                        <div class="chat-message flex mb-3">
+                            <div class="bg-blue-500 text-white rounded-lg p-3 max-w-[85%]">
+                                <p>Hello! I'm your weather assistant. Ask me questions like "Can I carry an umbrella today?" or "Is it a good day for outdoor activities?"</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex space-x-2">
+                        <input type="text" id="user-input" placeholder="Ask about the weather..." class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button id="send-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                            <i data-lucide="send" class="w-5 h-5"></i>
+                        </button>
+                        <button id="voice-btn" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                            <i data-lucide="mic" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h3 class="font-semibold text-gray-700 mb-2">Quick Questions:</h3>
+                        <div class="flex flex-wrap gap-2">
+                            <button class="nlp-btn text-white px-3 py-1 rounded-full text-sm">Can I carry an umbrella?</button>
+                            <button class="nlp-btn text-white px-3 py-1 rounded-full text-sm">Is it good for outdoor activities?</button>
+                            <button class="nlp-btn text-white px-3 py-1 rounded-full text-sm">Should I wear a jacket?</button>
+                            <button class="nlp-btn text-white px-3 py-1 rounded-full text-sm">Is UV index high today?</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- WhatsApp Integration -->
+                <div class="weather-card p-6">
+                    <div class="flex items-center space-x-2 mb-6">
+                        <i data-lucide="smartphone" class="text-green-500 w-6 h-6"></i>
+                        <h2 class="text-xl font-bold text-gray-800">Weather Updates</h2>
+                    </div>
+                    
+                    <div id="whatsapp-section">
+                        <p class="text-gray-600 mb-4">Add your WhatsApp number to receive daily weather updates and alerts.</p>
+                        
+                        <div class="flex space-x-3 mb-4">
+                            <input type="tel" id="whatsapp-number" placeholder="Enter WhatsApp number (+1234567890)" class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
+                            <button id="add-whatsapp-btn" class="add-whatsapp-btn text-white px-4 py-2 rounded-lg">
+                                <i data-lucide="plus" class="w-5 h-5"></i>
+                                <span class="ml-2">Add</span>
+                            </button>
+                        </div>
+                        
+                        <div id="whatsapp-list" class="space-y-2 max-h-40 overflow-y-auto">
+                            <!-- WhatsApp numbers will be added here -->
+                            <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                <span class="text-gray-700">+1234567890</span>
+                                <button class="text-red-500 hover:text-red-700">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 flex items-center space-x-2">
+                            <input type="checkbox" id="notifications" class="rounded text-green-500">
+                            <label for="notifications" class="text-gray-700">Enable daily weather alerts</label>
+                        </div>
+                        
+                        <button id="save-preferences-btn" class="mt-4 w-full bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors">
+                            <i data-lucide="save" class="w-4 h-4 inline mr-2"></i>
+                            Save Preferences
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="absolute bottom-0 left-0 right-0 p-6 text-center text-white text-sm z-10">
+        <p>Weather data provided by OpenWeatherMap • Weather Wise Assistant</p>
+    </footer>
+    
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+        
+        // Weather API Configuration
+        const API_KEY = 'API-KEY'; // Replace with your API key
+        const API_BASE_URL = 'https://api.openweathermap.org/data/2.5';
+        
+        // Weather Data Storage
+        let currentWeatherData = null;
+        let whatsappNumbers = [];
+        
+        // DOM Elements
+        const elements = {
+            locationBtn: document.getElementById('location-btn'),
+            weatherContent: document.getElementById('weather-content'),
+            loading: document.getElementById('loading'),
+            errorMessage: document.getElementById('error-message'),
+            errorText: document.getElementById('error-text'),
+            cityName: document.getElementById('city-name'),
+            weatherDescription: document.getElementById('weather-description'),
+            weatherIcon: document.getElementById('weather-icon'),
+            temperature: document.getElementById('temperature'),
+            feelsLike: document.getElementById('feels-like'),
+            humidity: document.getElementById('humidity'),
+            currentTime: document.getElementById('current-time'),
+            currentDate: document.getElementById('current-date'),
+            chatContainer: document.getElementById('chat-container'),
+            userInput: document.getElementById('user-input'),
+            sendBtn: document.getElementById('send-btn'),
+            voiceBtn: document.getElementById('voice-btn'),
+            whatsappNumberInput: document.getElementById('whatsapp-number'),
+            addWhatsappBtn: document.getElementById('add-whatsapp-btn'),
+            whatsappList: document.getElementById('whatsapp-list'),
+            savePreferencesBtn: document.getElementById('save-preferences-btn'),
+            notificationsCheckbox: document.getElementById('notifications')
+        };
+        
+        // Initialize the app
+        function init() {
+            updateDateTime();
+            setInterval(updateDateTime, 60000);
+            
+            // Set up event listeners
+            elements.locationBtn.addEventListener('click', () => getCurrentLocation());
+            elements.sendBtn.addEventListener('click', handleChatInput);
+            elements.userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleChatInput();
+            });
+            elements.voiceBtn.addEventListener('click', startVoiceRecognition);
+            elements.addWhatsappBtn.addEventListener('click', addWhatsAppNumber);
+            elements.savePreferencesBtn.addEventListener('click', savePreferences);
+            
+            // Add quick question listeners
+            document.querySelectorAll('.nlp-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    elements.userInput.value = btn.textContent;
+                    handleChatInput();
+                });
+            });
+            
+            // Load saved data
+            loadSavedData();
+            
+            // Try to get location automatically
+            setTimeout(getCurrentLocation, 1000);
+        }
+        
+        // Update current date and time
+        function updateDateTime() {
+            const now = new Date();
+            elements.currentTime.textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            elements.currentDate.textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        
+        // Get current location
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                elements.loading.classList.remove('hidden');
+                elements.weatherContent.classList.add('hidden');
+                elements.errorMessage.classList.add('hidden');
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        fetchWeatherByCoordinates(position.coords.latitude, position.coords.longitude);
+                    },
+                    (error) => {
+                        elements.loading.classList.add('hidden');
+                        elements.weatherContent.classList.remove('hidden');
+                        showErrorMessage('Unable to get your location. Please check your browser settings.');
+                    }
+                );
+            } else {
+                showErrorMessage('Geolocation is not supported by your browser.');
+            }
+        }
+        
+        // Fetch weather by coordinates
+        function fetchWeatherByCoordinates(lat, lon) {
+            fetch(`${API_BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`)
+                .then(response => response.json())
+                .then(data => {
+                    currentWeatherData = data;
+                    displayWeatherData(data);
+                    
+                    // Fetch forecast data
+                    return fetch(`${API_BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`);
+                })
+                .then(response => response.json())
+                .then(forecastData => {
+                    // Store forecast data for NLP queries
+                    currentWeatherData.forecast = forecastData;
+                })
+                .catch(error => {
+                    console.error('Error fetching weather data:', error);
+                    elements.loading.classList.add('hidden');
+                    elements.weatherContent.classList.remove('hidden');
+                    showErrorMessage('Unable to fetch weather data. Please try again later.');
+                });
+        }
+        
+        // Display weather data
+        function displayWeatherData(data) {
+            elements.loading.classList.add('hidden');
+            elements.weatherContent.classList.remove('hidden');
+            
+            const weatherCondition = data.weather[0].main.toLowerCase();
+            const weatherIconName = getWeatherIconName(weatherCondition);
+            
+            elements.cityName.textContent = `${data.name}, ${data.sys.country}`;
+            elements.weatherDescription.textContent = data.weather[0].description;
+            elements.temperature.textContent = `${Math.round(data.main.temp)}°C`;
+            elements.feelsLike.textContent = `Feels like ${Math.round(data.main.feels_like)}°C`;
+            elements.humidity.textContent = `Humidity: ${data.main.humidity}%`;
+            
+            // Update icon
+            elements.weatherIcon.setAttribute('data-lucide', weatherIconName);
+            lucide.createIcons();
+            
+            // Change background gradient based on weather
+            changeBackgroundByWeather(weatherCondition);
+        }
+        
+        // Get appropriate weather icon name
+        function getWeatherIconName(condition) {
+            const weatherIcons = {
+                'clear': 'sun',
+                'cloud': 'cloud',
+                'rain': 'cloud-rain',
+                'drizzle': 'cloud-drizzle',
+                'thunderstorm': 'cloud-lightning',
+                'snow': 'cloud-snow',
+                'mist': 'cloud-fog',
+                'fog': 'cloud-fog',
+                'haze': 'cloud-haze',
+                'smoke': 'cloud-haze'
+            };
+            
+            return weatherIcons[condition] || 'cloud';
+        }
+        
+        // Change background based on weather condition
+        function changeBackgroundByWeather(condition) {
+            const body = document.body;
+            const gradients = {
+                'clear': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                'cloud': 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+                'rain': 'linear-gradient(135deg, #434343 0%, #000000 100%)',
+                'drizzle': 'linear-gradient(135deg, #1a2a6c 0%, #b21f1f 0%, #fdbb2d 100%)',
+                'thunderstorm': 'linear-gradient(135deg, #2c3e50 0%, #4ca1af 0%, #c4e0e5 100%)',
+                'snow': 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)',
+                'mist': 'linear-gradient(135deg, #d5d4d0 0%, #d5d4d0 100%)',
+                'fog': 'linear-gradient(135deg, #654ea3 0%, #eaafc8 100%)'
+            };
+            
+            body.style.background = gradients[condition] || gradients['clear'];
+        }
+        
+        // Show error message
+        function showErrorMessage(message) {
+            elements.errorText.textContent = message;
+            elements.errorMessage.classList.remove('hidden');
+        }
+        
+        // NLP Chat Functionality
+        function handleChatInput() {
+            const input = elements.userInput.value.trim();
+            if (!input) return;
+            
+            // Add user message to chat
+            addChatMessage(input, 'user');
+            elements.userInput.value = '';
+            
+            // Process NLP query
+            processNLPQuery(input);
+        }
+        
+        // Add message to chat
+        function addChatMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message flex mb-3 ${sender === 'user' ? 'justify-end' : ''}`;
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = `rounded-lg p-3 max-w-[85%] ${sender === 'user' ? 'bg-blue-500 text-white' : 'bg-green-100 text-gray-800'}`;
+            
+            bubbleDiv.innerHTML = `<p>${text}</p>`;
+            messageDiv.appendChild(bubbleDiv);
+            
+            elements.chatContainer.appendChild(messageDiv);
+            elements.chatContainer.scrollTop = elements.chatContainer.scrollHeight;
+        }
+        
+        // Process NLP queries
+        function processNLPQuery(query) {
+            const lowerQuery = query.toLowerCase();
+            let response = '';
+            
+            if (!currentWeatherData) {
+                response = "I need weather data to answer your question. Please allow location access.";
+                setTimeout(() => addChatMessage(response, 'bot'), 1000);
+                return;
+            }
+            
+            // Check for umbrella question
+            if (lowerQuery.includes('umbrella') || lowerQuery.includes('rain') || lowerQuery.includes('drizzle')) {
+                const weatherCondition = currentWeatherData.weather[0].main.toLowerCase();
+                if (weatherCondition.includes('rain') || weatherCondition.includes('drizzle')) {
+                    response = "Yes, you should carry an umbrella today. It's raining or drizzling!";
+                } else {
+                    response = "No, you don't need an umbrella today. The weather is clear.";
+                }
+            }
+            // Check for outdoor activities question
+            else if (lowerQuery.includes('outdoor') || lowerQuery.includes('activities') || lowerQuery.includes('play')) {
+                const temp = currentWeatherData.main.temp;
+                const weatherCondition = currentWeatherData.weather[0].main.toLowerCase();
+                
+                if (temp < 10 || temp > 35) {
+                    response = "It might not be ideal for outdoor activities today. The temperature is either too cold or too hot.";
+                } else if (weatherCondition.includes('rain') || weatherCondition.includes('thunderstorm')) {
+                    response = "Not recommended for outdoor activities today due to rain/storm.";
+                } else {
+                    response = "Yes, it's a great day for outdoor activities! The weather is pleasant.";
+                }
+            }
+            // Check for jacket question
+            else if (lowerQuery.includes('jacket') || lowerQuery.includes('coat') || lowerQuery.includes('warm')) {
+                const temp = currentWeatherData.main.temp;
+                const feelsLike = currentWeatherData.main.feels_like;
+                
+                if (temp < 15 || feelsLike < 15) {
+                    response = "Yes, you should wear a jacket. It's quite cold outside.";
+                } else {
+                    response = "No, you probably won't need a jacket today. The weather is warm.";
+                }
+            }
+            // Check for UV index question
+            else if (lowerQuery.includes('uv') || lowerQuery.includes('sunscreen') || lowerQuery.includes('sun')) {
+                const weatherCondition = currentWeatherData.weather[0].main.toLowerCase();
+                
+                if (weatherCondition.includes('clear') || weatherCondition.includes('cloud')) {
+                    response = "Yes, the UV index is high today. Don't forget sunscreen if you're going to be outside.";
+                } else {
+                    response = "The UV index is low today due to cloud cover. Sunscreen might not be necessary.";
+                }
+            }
+            // General weather summary
+            else if (lowerQuery.includes('weather') || lowerQuery.includes('today')) {
+                const temp = currentWeatherData.main.temp;
+                const condition = currentWeatherData.weather[0].description;
+                response = `Today's weather: ${condition}. Temperature is ${temp}°C with ${currentWeatherData.main.humidity}% humidity.`;
+            }
+            else {
+                response = "I'm not sure about that. Try asking about rain, temperature, or outdoor activities.";
+            }
+            
+            setTimeout(() => addChatMessage(response, 'bot'), 1000);
+        }
+        
+        // Voice Recognition
+        function startVoiceRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                
+                recognition.lang = 'en-US';
+                recognition.continuous = false;
+                
+                recognition.start();
+                
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    elements.userInput.value = transcript;
+                    handleChatInput();
+                };
+                
+                recognition.onerror = (event) => {
+                    addChatMessage("Voice recognition error. Please try typing your question.", 'bot');
+                };
+            } else {
+                addChatMessage("Voice recognition is not supported in your browser. Please use Chrome or Edge.", 'bot');
+            }
+        }
+        
+        function addWhatsAppNumber() {
+            const number = elements.whatsappNumberInput.value.trim();
+            
+            if (!number) {
+                alert('Please enter a valid WhatsApp number');
+                return;
+            }
+            
+            // Simple validation
+            if (!/^\+?[1-9]\d{1,14}$/.test(number)) {
+                alert('Please enter a valid WhatsApp number in international format');
+                return;
+            }
+            
+            if (whatsappNumbers.includes(number)) {
+                alert('This number is already in your list');
+                return;
+            }
+            
+            whatsappNumbers.push(number);
+            renderWhatsAppNumbers();
+            elements.whatsappNumberInput.value = '';
+            saveSavedData();
+        }
+        
+        // Render WhatsApp numbers list
+        function renderWhatsAppNumbers() {
+            elements.whatsappList.innerHTML = '';
+            
+            if (whatsappNumbers.length === 0) {
+                elements.whatsappList.innerHTML = '<p class="text-gray-500 text-center italic">No WhatsApp numbers added yet</p>';
+                return;
+            }
+            
+            whatsappNumbers.forEach((number, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200';
+                
+                itemDiv.innerHTML = `
+                    <span class="text-gray-700">${number}</span>
+                    <button class="text-red-500 hover:text-red-700 delete-btn" data-index="${index}">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                `;
+                
+                elements.whatsappList.appendChild(itemDiv);
+            });
+            
+            // Add event listeners to delete buttons
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = e.target.closest('button').getAttribute('data-index');
+                    whatsappNumbers.splice(index, 1);
+                    renderWhatsAppNumbers();
+                    saveSavedData();
+                    lucide.createIcons();
+                });
+            });
+            
+            lucide.createIcons();
+        }
+        
+        // Save preferences
+        function savePreferences() {
+            saveSavedData();
+            
+            // Show confirmation
+            addChatMessage("✅ Your weather preferences have been saved! You'll receive updates at the specified numbers.", 'bot');
+            
+            const confirmationDiv = document.createElement('div');
+            confirmationDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce';
+            confirmationDiv.innerHTML = '<p>Preferences saved successfully!</p>';
+            
+            document.body.appendChild(confirmationDiv);
+            
+            setTimeout(() => {
+                document.body.removeChild(confirmationDiv);
+            }, 3000);
+        }
+        
+        // Save data to localStorage
+        function saveSavedData() {
+            localStorage.setItem('whatsappNumbers', JSON.stringify(whatsappNumbers));
+            localStorage.setItem('weatherPreferences', JSON.stringify({
+                notificationsEnabled: elements.notificationsCheckbox.checked
+            }));
+        }
+        
+        // Load  
+        function loadSavedData() {
+            const savedNumbers = localStorage.getItem('whatsappNumbers');
+            const savedPreferences = localStorage.getItem('weatherPreferences');
+            
+            if (savedNumbers) {
+                whatsappNumbers = JSON.parse(savedNumbers);
+                renderWhatsAppNumbers();
+            }
+            
+            if (savedPreferences) {
+                const preferences = JSON.parse(savedPreferences);
+                elements.notificationsCheckbox.checked = preferences.notificationsEnabled || false;
+            }
+        }
+        
+ 
+        init();
+    </script>
+</body>
+
+</html>
